@@ -1,0 +1,111 @@
+version: '3.8'
+
+volumes:
+  repodb_mysql:
+    driver: local
+  owncloud_files:
+    driver: local
+  owncloud_mysql:
+    driver: local
+  owncloud_redis:
+    driver: local
+  db_migrations:
+    driver: local
+
+
+services:
+  mariadb:
+    image: mariadb:10.11 # minimum required ownCloud version is 10.9
+    container_name: mariadb
+    ports:
+      - "3306:3306"
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${XR50_OWNCLOUD_DB_PASSWORD}
+      MYSQL_USER: ${XR50_OWNCLOUD_DB_USER}
+      MYSQL_PASSWORD: ${XR50_OWNCLOUD_DB_PASSWORD}
+      MYSQL_DATABASE: owncloud
+      MARIADB_AUTO_UPGRADE: 1
+      XR50_REPO_DB_NAME: ${XR50_REPO_DB_NAME}
+      XR50_REPO_DB_USER: ${XR50_REPO_DB_USER}
+      XR50_REPO_DB_PASSWORD: ${XR50_REPO_DB_PASSWORD}
+    command: ["--max-allowed-packet=128M", "--innodb-log-file-size=64M"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "${XR50_OWNCLOUD_DB_USER}", "--password=${XR50_OWNCLOUD_DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - repodb_mysql:/var/lib/mysql
+      - ./db-init-scripts:/docker-entrypoint-initdb.d/ # Mount custom scripts for DB initialization
+      
+  training-repo:
+    container_name: training-repo
+    image: training-repo-image
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      owncloud:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      XR50_REPO_DB_USER: ${XR50_REPO_DB_USER}
+      XR50_REPO_DB_PASSWORD: ${XR50_REPO_DB_PASSWORD}
+      XR50_REPO_DB_NAME: ${XR50_REPO_DB_NAME}
+      OwncloudSettings__BaseAPI: http://owncloud:8080
+      OwncloudSettings__BaseWebDAV: http://owncloud:8080/remote.php/webdav
+      OwncloudSettings__Admin: ${XR50_OWNCLOUD_ADMIN_USER}
+      OwncloudSettings__Password: ${XR50_OWNCLOUD_ADMIN_PASSWORD}
+      ConnectionStrings__DefaultConnection: server=mariadb;port=3306;database=${XR50_REPO_DB_NAME};user=${XR50_REPO_DB_USER};password=${XR50_REPO_DB_PASSWORD};
+    ports:
+      - "5286:5286"
+      - "7069:7069"
+    volumes:
+      - db_migrations:/App/Migrations
+  
+  owncloud:
+    image: owncloud/server:10.15
+    container_name: owncloud_server
+    restart: always
+    ports:
+      - 8080:8080
+    depends_on:
+      - mariadb
+      - owncloud_redis
+    environment:
+      - OWNCLOUD_DOMAIN=localhost:8080
+      - OWNCLOUD_TRUSTED_DOMAINS=${XR50_OWNCLOUD_TRUSTED_DOMAINS}
+      - OWNCLOUD_DB_TYPE=mysql
+      - OWNCLOUD_DB_NAME=owncloud
+      - OWNCLOUD_DB_USERNAME=${XR50_OWNCLOUD_DB_USER}
+      - OWNCLOUD_DB_PASSWORD=${XR50_OWNCLOUD_DB_PASSWORD}
+      - OWNCLOUD_DB_HOST=mariadb
+      - OWNCLOUD_ADMIN_USERNAME=${XR50_OWNCLOUD_ADMIN_USER}
+      - OWNCLOUD_ADMIN_PASSWORD=${XR50_OWNCLOUD_ADMIN_PASSWORD}
+      - OWNCLOUD_MYSQL_UTF8MB4=true
+      - OWNCLOUD_REDIS_ENABLED=true
+      - OWNCLOUD_REDIS_HOST=owncloud_redis
+    healthcheck:
+      test: ["CMD", "/usr/bin/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - owncloud_files:/mnt/data
+
+  owncloud_redis:
+    image: redis:6
+    container_name: owncloud_redis
+    restart: always
+    command: ["--databases", "1"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - owncloud_redis:/data
+  

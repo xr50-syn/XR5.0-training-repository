@@ -1,0 +1,6 @@
+@TrainingRepo_HostAddress = http://localhost:5286
+
+GET {{TrainingRepo_HostAddress}}/TEST/
+Accept: application/json
+
+###
