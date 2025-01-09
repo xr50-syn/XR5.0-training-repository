@@ -362,10 +362,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 #Project Temporary/Environment Files
-Properties/launchSettings.json
 server.log
 nohup.out
-appsettings.json
 Migrations/
 app/
 .vscode/
