@@ -369,5 +369,4 @@ appsettings.json
 Migrations/
 app/
 .vscode/
-.env
 .codegpt
