@@ -14,9 +14,9 @@ This is a dockerized version and requires docker to be already installed
 In this file, you can also modify the admin username/password for the Owncloud admin user, the Owncloud Database user name&password and the XR5.0 DB username&password 
 
 - Build the containers by using 
-docker-compose up --build
+`docker-compose up --build`
 
-- Verify that the components have started properly by  opening a browser and connecting to localhost:8080 (owncloud installation) and localhost:5286/swagger(Repo swagger interface)
+- Verify that the components have started properly by  opening a browser and connecting to `localhost:8080` (owncloud installation) and `localhost:5286/swagger`(Repo swagger interface)
 
 ## Usage
 
